@@ -3,6 +3,15 @@ import "./index.css";
 
 type Format = "pdf" | "png";
 type Tab = "paste" | "upload";
+type ConversionSource =
+  | { tab: "upload"; file: File }
+  | { tab: "paste"; markdown: string };
+
+type ConvertedBundle = {
+  sourceKey: string;
+  pdf: Blob;
+  png: Blob;
+};
 
 export function App() {
   const [tab, setTab] = useState<Tab>("paste");
@@ -12,9 +21,105 @@ export function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [dragOver, setDragOver] = useState(false);
+  const [convertedBundle, setConvertedBundle] = useState<ConvertedBundle | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const hasContent = tab === "paste" ? markdown.trim().length > 0 : file !== null;
+
+  const getSourceKey = (source: ConversionSource) => {
+    if (source.tab === "upload") {
+      return `${source.file.name}:${source.file.size}:${source.file.lastModified}`;
+    }
+    return `paste:${source.markdown}`;
+  };
+
+  const createConversionSource = (uploadFile?: File): ConversionSource | null => {
+    if (tab === "upload") {
+      const sourceFile = uploadFile ?? file;
+      if (!sourceFile) {
+        return null;
+      }
+      return { tab: "upload", file: sourceFile };
+    }
+
+    if (!markdown.trim()) {
+      return null;
+    }
+
+    return { tab: "paste", markdown };
+  };
+
+  const convertToBlob = async (source: ConversionSource, outputFormat: Format): Promise<Blob> => {
+    const formData = new FormData();
+    formData.set("format", outputFormat);
+
+    if (source.tab === "upload") {
+      formData.set("file", source.file);
+    } else {
+      formData.set("markdown", source.markdown);
+    }
+
+    const res = await fetch("/api/convert", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const json = await res.json();
+      throw new Error(json.error || "Conversion failed");
+    }
+
+    return res.blob();
+  };
+
+  const convertBothFormats = async (source: ConversionSource): Promise<ConvertedBundle | null> => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const [pdfBlob, pngBlob] = await Promise.all([
+        convertToBlob(source, "pdf"),
+        convertToBlob(source, "png"),
+      ]);
+
+      const bundle: ConvertedBundle = {
+        sourceKey: getSourceKey(source),
+        pdf: pdfBlob,
+        png: pngBlob,
+      };
+      setConvertedBundle(bundle);
+      return bundle;
+    } catch (err: any) {
+      setError(err.message || "Something went wrong");
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const requestSingleConversion = async (): Promise<Blob | null> => {
+    const source = createConversionSource();
+    if (!source) {
+      setError("Please provide markdown content");
+      return null;
+    }
+
+    if (convertedBundle && convertedBundle.sourceKey === getSourceKey(source)) {
+      return format === "pdf" ? convertedBundle.pdf : convertedBundle.png;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      return await convertToBlob(source, format);
+    } catch (err: any) {
+      setError(err.message || "Something went wrong");
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -23,6 +128,8 @@ export function App() {
     if (droppedFile && (droppedFile.name.endsWith(".md") || droppedFile.name.endsWith(".markdown") || droppedFile.type === "text/markdown" || droppedFile.type === "text/plain")) {
       setFile(droppedFile);
       setError("");
+      setConvertedBundle(null);
+      void convertBothFormats({ tab: "upload", file: droppedFile });
     } else {
       setError("Please drop a markdown (.md) file");
     }
@@ -33,63 +140,61 @@ export function App() {
     if (selected) {
       setFile(selected);
       setError("");
+      setConvertedBundle(null);
+      void convertBothFormats({ tab: "upload", file: selected });
     }
   };
 
-  const requestConversion = async (): Promise<Blob | null> => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const formData = new FormData();
-      formData.set("format", format);
-
-      if (tab === "upload" && file) {
-        formData.set("file", file);
-      } else if (tab === "paste" && markdown.trim()) {
-        formData.set("markdown", markdown);
-      } else {
-        setError("Please provide markdown content");
-        return null;
+  const getDownloadBaseName = (source: ConversionSource) => {
+    if (source.tab === "upload") {
+      const fileName = source.file.name.trim();
+      const lastDotIndex = fileName.lastIndexOf(".");
+      if (lastDotIndex > 0) {
+        return fileName.slice(0, lastDotIndex);
       }
-
-      const res = await fetch("/api/convert", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const json = await res.json();
-        throw new Error(json.error || "Conversion failed");
+      if (fileName.length > 0) {
+        return fileName;
       }
-
-      return await res.blob();
-    } catch (err: any) {
-      setError(err.message || "Something went wrong");
-      return null;
-    } finally {
-      setLoading(false);
     }
+
+    return "document";
   };
 
-  const handleDownload = async () => {
-    const blob = await requestConversion();
-    if (!blob) {
-      return;
-    }
-
+  const downloadBlob = (blob: Blob, extension: Format, baseName: string) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `document.${format}`;
+    a.download = `${baseName}.${extension}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
 
+  const handleDownload = async () => {
+    const source = createConversionSource();
+    if (!source) {
+      setError("Please provide markdown content");
+      return;
+    }
+
+    const sourceKey = getSourceKey(source);
+    const bundle =
+      convertedBundle && convertedBundle.sourceKey === sourceKey
+        ? convertedBundle
+        : await convertBothFormats(source);
+
+    if (!bundle) {
+      return;
+    }
+
+    const baseName = getDownloadBaseName(source);
+    downloadBlob(bundle.pdf, "pdf", baseName);
+    downloadBlob(bundle.png, "png", baseName);
+  };
+
   const handlePreview = async () => {
-    const blob = await requestConversion();
+    const blob = await requestSingleConversion();
     if (!blob) {
       return;
     }
@@ -157,6 +262,7 @@ export function App() {
               onChange={(e) => {
                 setMarkdown(e.target.value);
                 setError("");
+                setConvertedBundle(null);
               }}
               spellCheck={false}
             />
@@ -186,7 +292,7 @@ export function App() {
                   <span className="file-size">{(file.size / 1024).toFixed(1)} KB</span>
                   <button
                     className="remove-file"
-                    onClick={(e) => { e.stopPropagation(); setFile(null); }}
+                    onClick={(e) => { e.stopPropagation(); setFile(null); setConvertedBundle(null); }}
                   >
                     Remove
                   </button>
@@ -209,7 +315,7 @@ export function App() {
         {/* Controls */}
         <div className="controls">
           <div className="format-picker">
-            <span className="format-label">Output format:</span>
+            <span className="format-label">Preview format:</span>
             <div className="format-options">
               <button
                 className={`format-btn ${format === "pdf" ? "active" : ""}`}
@@ -274,7 +380,7 @@ export function App() {
                     <polyline points="7 10 12 15 17 10" />
                     <line x1="12" y1="15" x2="12" y2="3" />
                   </svg>
-                  Convert &amp; Download
+                  Download PDF &amp; PNG
                 </>
               )}
             </button>

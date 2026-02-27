@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  --bg: radial-gradient(circle at 20% 0%, #1f2a4f 0%, #12172b 40%, #0a0f1f 100%);
+  --bg: linear-gradient(145deg, #2e1065 0%, #5b21b6 45%, #7e22ce 100%);
   --surface: #1a1a2e;
   --surface-hover: #22223a;
   --border: #2d2d4a;
