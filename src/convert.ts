@@ -167,6 +167,23 @@ const htmlTemplate = (body: string) => `<!DOCTYPE html>
     max-width: 100%;
     border-radius: 8px;
     margin: 1em 0;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    display: block;
+  }
+
+  figure,
+  svg,
+  pre,
+  table,
+  blockquote {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+    break-after: avoid;
   }
 
   hr {
