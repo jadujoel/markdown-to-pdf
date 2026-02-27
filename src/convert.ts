@@ -189,14 +189,22 @@ const htmlTemplate = (body: string, options: Required<ConvertOptions>) => `<!DOC
 
   ${options.preventImageSplit ? `
   img {
-    max-height: 220mm;
+    max-height: 200mm;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    page-break-before: auto;
+    page-break-after: auto;
+  }
+
+  /* Markdown renders images inside <p> tags — the container must also avoid splits */
+  p:has(> img) {
     page-break-inside: avoid;
     break-inside: avoid;
   }
 
   figure img,
   svg {
-    max-height: 220mm;
+    max-height: 200mm;
   }
 
   figure,
