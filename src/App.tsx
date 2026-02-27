@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import "./index.css";
 
 type Format = "pdf" | "png";
@@ -15,17 +15,29 @@ type ConvertedBundle = {
 };
 
 export function App() {
+  const PDF_IMAGE_SPLIT_SETTING_KEY = "pdf.preventImageSplit";
   const [tab, setTab] = useState<Tab>("paste");
   const [lastInputTab, setLastInputTab] = useState<InputTab>("paste");
   const [markdown, setMarkdown] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [format, setFormat] = useState<Format>("pdf");
-  const [preventImageSplit, setPreventImageSplit] = useState(true);
+  const [preventImageSplit, setPreventImageSplit] = useState(() => {
+    if (typeof window === "undefined") {
+      return true;
+    }
+
+    const saved = window.localStorage.getItem(PDF_IMAGE_SPLIT_SETTING_KEY);
+    return saved === null ? true : saved === "true";
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [convertedBundle, setConvertedBundle] = useState<ConvertedBundle | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    window.localStorage.setItem(PDF_IMAGE_SPLIT_SETTING_KEY, preventImageSplit ? "true" : "false");
+  }, [preventImageSplit]);
 
   const activeInputTab = tab === "settings" ? lastInputTab : tab;
   const hasContent = activeInputTab === "paste" ? markdown.trim().length > 0 : file !== null;

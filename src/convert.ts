@@ -169,18 +169,34 @@ const htmlTemplate = (body: string, options: Required<ConvertOptions>) => `<!DOC
 
   img {
     max-width: 100%;
+    width: 100%;
+    height: auto;
     border-radius: 8px;
     margin: 1em 0;
     display: block;
   }
 
+  svg {
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  figure {
+    max-width: 100%;
+    margin: 1em 0;
+  }
+
   ${options.preventImageSplit ? `
   img {
     max-height: 220mm;
-    width: auto;
-    object-fit: contain;
     page-break-inside: avoid;
     break-inside: avoid;
+  }
+
+  figure img,
+  svg {
+    max-height: 220mm;
   }
 
   figure,
