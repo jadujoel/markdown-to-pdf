@@ -1,8 +1,9 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useRef } from "react";
 import "./index.css";
 
 type Format = "pdf" | "png";
-type Tab = "paste" | "upload";
+type InputTab = "paste" | "upload";
+type Tab = InputTab | "settings";
 type ConversionSource =
   | { tab: "upload"; file: File }
   | { tab: "paste"; markdown: string };
@@ -15,26 +16,34 @@ type ConvertedBundle = {
 
 export function App() {
   const [tab, setTab] = useState<Tab>("paste");
+  const [lastInputTab, setLastInputTab] = useState<InputTab>("paste");
   const [markdown, setMarkdown] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [format, setFormat] = useState<Format>("pdf");
+  const [preventImageSplit, setPreventImageSplit] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [convertedBundle, setConvertedBundle] = useState<ConvertedBundle | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const hasContent = tab === "paste" ? markdown.trim().length > 0 : file !== null;
+  const activeInputTab = tab === "settings" ? lastInputTab : tab;
+  const hasContent = activeInputTab === "paste" ? markdown.trim().length > 0 : file !== null;
+
+  const setInputTab = (nextTab: InputTab) => {
+    setTab(nextTab);
+    setLastInputTab(nextTab);
+  };
 
   const getSourceKey = (source: ConversionSource) => {
     if (source.tab === "upload") {
-      return `${source.file.name}:${source.file.size}:${source.file.lastModified}`;
+      return `${source.file.name}:${source.file.size}:${source.file.lastModified}:preventSplit=${preventImageSplit}`;
     }
-    return `paste:${source.markdown}`;
+    return `paste:${source.markdown}:preventSplit=${preventImageSplit}`;
   };
 
   const createConversionSource = (uploadFile?: File): ConversionSource | null => {
-    if (tab === "upload") {
+    if (activeInputTab === "upload") {
       const sourceFile = uploadFile ?? file;
       if (!sourceFile) {
         return null;
@@ -52,6 +61,7 @@ export function App() {
   const convertToBlob = async (source: ConversionSource, outputFormat: Format): Promise<Blob> => {
     const formData = new FormData();
     formData.set("format", outputFormat);
+    formData.set("preventImageSplit", preventImageSplit ? "true" : "false");
 
     if (source.tab === "upload") {
       formData.set("file", source.file);
@@ -121,7 +131,7 @@ export function App() {
     }
   };
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
     const droppedFile = e.dataTransfer.files[0];
@@ -133,7 +143,7 @@ export function App() {
     } else {
       setError("Please drop a markdown (.md) file");
     }
-  }, []);
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
@@ -231,7 +241,7 @@ export function App() {
         <div className="tabs">
           <button
             className={`tab ${tab === "paste" ? "active" : ""}`}
-            onClick={() => setTab("paste")}
+            onClick={() => setInputTab("paste")}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
@@ -241,7 +251,7 @@ export function App() {
           </button>
           <button
             className={`tab ${tab === "upload" ? "active" : ""}`}
-            onClick={() => setTab("upload")}
+            onClick={() => setInputTab("upload")}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -249,6 +259,23 @@ export function App() {
               <line x1="12" y1="3" x2="12" y2="15" />
             </svg>
             Upload File
+          </button>
+          <button
+            className={`tab ${tab === "settings" ? "active" : ""}`}
+            onClick={() => setTab("settings")}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M12 1v2" />
+              <path d="M12 21v2" />
+              <path d="M4.22 4.22l1.42 1.42" />
+              <path d="M18.36 18.36l1.42 1.42" />
+              <path d="M1 12h2" />
+              <path d="M21 12h2" />
+              <path d="M4.22 19.78l1.42-1.42" />
+              <path d="M18.36 5.64l1.42-1.42" />
+            </svg>
+            Settings
           </button>
         </div>
 
@@ -266,7 +293,7 @@ export function App() {
               }}
               spellCheck={false}
             />
-          ) : (
+          ) : tab === "upload" ? (
             <div
               className={`dropzone ${dragOver ? "drag-over" : ""} ${file ? "has-file" : ""}`}
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -308,6 +335,24 @@ export function App() {
                   <span className="drop-subtext">or click to browse</span>
                 </div>
               )}
+            </div>
+          ) : (
+            <div className="settings-panel">
+              <h3>PDF Settings</h3>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={preventImageSplit}
+                  onChange={(e) => {
+                    setPreventImageSplit(e.target.checked);
+                    setConvertedBundle(null);
+                  }}
+                />
+                <span>Keep large images on a single PDF page</span>
+              </label>
+              <p className="settings-help">
+                When enabled, large images are scaled to fit one page to avoid splitting.
+              </p>
             </div>
           )}
         </div>

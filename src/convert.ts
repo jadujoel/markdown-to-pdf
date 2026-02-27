@@ -13,7 +13,11 @@ const marked = new Marked(
   })
 );
 
-const htmlTemplate = (body: string) => `<!DOCTYPE html>
+type ConvertOptions = {
+  preventImageSplit?: boolean;
+};
+
+const htmlTemplate = (body: string, options: Required<ConvertOptions>) => `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
@@ -167,9 +171,16 @@ const htmlTemplate = (body: string) => `<!DOCTYPE html>
     max-width: 100%;
     border-radius: 8px;
     margin: 1em 0;
+    display: block;
+  }
+
+  ${options.preventImageSplit ? `
+  img {
+    max-height: 220mm;
+    width: auto;
+    object-fit: contain;
     page-break-inside: avoid;
     break-inside: avoid;
-    display: block;
   }
 
   figure,
@@ -180,6 +191,7 @@ const htmlTemplate = (body: string) => `<!DOCTYPE html>
     page-break-inside: avoid;
     break-inside: avoid;
   }
+  ` : ""}
 
   h1, h2, h3, h4, h5, h6 {
     page-break-after: avoid;
@@ -216,10 +228,14 @@ async function getBrowser() {
 
 export async function convertMarkdown(
   markdown: string,
-  format: "pdf" | "png"
+  format: "pdf" | "png",
+  options: ConvertOptions = {}
 ): Promise<Uint8Array> {
+  const resolvedOptions: Required<ConvertOptions> = {
+    preventImageSplit: options.preventImageSplit ?? true,
+  };
   const htmlBody = await marked.parse(markdown);
-  const fullHtml = htmlTemplate(htmlBody);
+  const fullHtml = htmlTemplate(htmlBody, resolvedOptions);
 
   const browser = await getBrowser();
   const page = await browser.newPage();

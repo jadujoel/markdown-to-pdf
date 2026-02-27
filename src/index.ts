@@ -15,12 +15,14 @@ const server = serve({
 
           let markdown = "";
           let format: "pdf" | "png" = "pdf";
+          let preventImageSplit = true;
 
           if (contentType.includes("multipart/form-data")) {
             const formData = await req.formData();
             const file = formData.get("file") as File | null;
             const text = formData.get("markdown") as string | null;
             format = (formData.get("format") as string) === "png" ? "png" : "pdf";
+            preventImageSplit = (formData.get("preventImageSplit") as string) !== "false";
 
             if (file && file.size > 0) {
               if (file.size > MAX_SIZE) {
@@ -34,13 +36,16 @@ const server = serve({
             const body = await req.json();
             markdown = body.markdown ?? "";
             format = body.format === "png" ? "png" : "pdf";
+            preventImageSplit = body.preventImageSplit !== false;
           }
 
           if (!markdown.trim()) {
             return Response.json({ error: "No markdown content provided" }, { status: 400 });
           }
 
-          const result = await convertMarkdown(markdown, format);
+          const result = await convertMarkdown(markdown, format, {
+            preventImageSplit,
+          });
 
           const mime = format === "pdf" ? "application/pdf" : "image/png";
           const ext = format;

@@ -127,6 +127,42 @@ body {
   min-height: 300px;
 }
 
+.settings-panel {
+  min-height: 300px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.settings-panel h3 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.settings-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  font-size: 0.92rem;
+}
+
+.settings-toggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.settings-help {
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
 .editor {
   width: 100%;
   min-height: 300px;
