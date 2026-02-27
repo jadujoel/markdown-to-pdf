@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  --bg: #0f0f1a;
+  --bg: radial-gradient(circle at 20% 0%, #1f2a4f 0%, #12172b 40%, #0a0f1f 100%);
   --surface: #1a1a2e;
   --surface-hover: #22223a;
   --border: #2d2d4a;
@@ -28,6 +28,7 @@
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: var(--bg);
+  background-attachment: fixed;
   color: var(--text);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
@@ -327,6 +328,42 @@ body {
   cursor: not-allowed;
 }
 
+.action-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.preview-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.925rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.preview-btn:hover:not(:disabled) {
+  border-color: var(--border-focus);
+  background: var(--surface-hover);
+  transform: translateY(-1px);
+}
+
+.preview-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.preview-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Spinner */
 .spinner {
   display: inline-block;
@@ -369,5 +406,6 @@ body {
   .container { padding: 24px 16px 24px; }
   .controls { flex-direction: column; align-items: stretch; }
   .format-picker { justify-content: center; }
-  .convert-btn { justify-content: center; }
+  .action-buttons { width: 100%; }
+  .preview-btn, .convert-btn { flex: 1; justify-content: center; }
 }
